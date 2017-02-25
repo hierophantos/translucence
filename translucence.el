@@ -86,11 +86,8 @@
 (require 'timer)
 
 (defun cancel-transparency-timers ()
-  (progn
-    (cancel-function-timers 'increase-opacity)
-    (cancel-function-timers 'decrease-opacity)
-    (cancel-function-timers 'disappearing)
-    (cancel-function-timers 'reappearing)))
+  (mapcar 'cancel-function-timers
+        '(increase-opacity decrease-opacity disappearing reappearing)))
 
 (defun disappearing (&optional interval duration)
   (let ((interval (or interval .15))
@@ -132,9 +129,9 @@ cycle to the next reappearing cycle.
 
 
 (defun toggle-transparency-animation ()
-  (interactive)
-  (if (or (eq 'increase-opacity (elt (car timer-list) 5))   ;; check to see if our timers are running
-          (eq 'decrease-opacity (elt (car timer-list) 5)))
+  (interactive)                                             ;; check to see if our timers are running
+  (if (or (eq 'increase-opacity (elt (car timer-list) 5))   ;; a bit of a hack
+          (eq 'decrease-opacity (elt (car timer-list) 5)))  ;; a local state var would be more robust here
       (stop-transparency-animation)
     (transparency-animation)))
 
