@@ -85,59 +85,58 @@
 
 (require 'timer)
 
-;; (eval-after-load "dash" '(dash-enable-font-lock))
-;; I'd like to be able to map fns over the list of (frames-list)
-;; (require 'dash)
+(defun cancel-transparency-timers ()
+  (progn
+    (cancel-function-timers 'increase-opacity)
+    (cancel-function-timers 'decrease-opacity)
+    (cancel-function-timers 'disappearing)
+    (cancel-function-timers 'reappearing)))
 
-(defun transparency-loop (upper lower &optional all-frames-p)
-  (let ((transparency-step   1)
-        (differential        5)
-        (transparency-cycle 'disappearing)   ;; diff actv|inactv
-        ;; (all-frames-p all-frames-p)
-        )
-    (cond
-     ;; Lower Bounds Catch
-     ;; Flips transparency-cycle to 'appearing
-     ((and (equalp transparency-cycle 'disappearing)
-           (<= (active-frame-transparency) lower))
-      (progn
-        ;; setting the transparency here ^^^
-        (setq transparency-cycle 'appearing)
-        (set-frame-opacity lower (- lower differential) all-frames-p)
-        (increase-opacity)))
+(defun disappearing (&optional interval duration)
+  (let ((interval (or interval .15))
+        (duration (or duration   5)))
+    (cancel-transparency-timers)
+    (run-with-timer 0        interval 'decrease-opacity)
+    (run-with-timer duration nil      'reappearing interval duration)))
 
-     ;; decrease opacity if we're "disappearing" and not
-     ;; below our lower bounds
-     ((and (equalp transparency-cycle 'disappearing)
-           (not (<= (active-frame-transparency) lower)))
-      (decrease-opacity))
+(defun reappearing (&optional interval duration)
+  (let ((interval (or interval .15))
+        (duration (or duration   5)))    ;; when to call the next cycle
+    (cancel-transparency-timers)
+    (run-with-timer 0        interval 'increase-opacity)
+    (run-with-timer duration nil      'disappearing interval duration)))
 
-     ;; our upper bound is hit and we restart the disappearing cycle
-     ((and (equalp transparency-cycle 'appearing)
-           (>= (active-frame-transparency) upper))
-      (progn
-        ;; setting the transparency here \/\/\/
-        (set-frame-opacity upper (- upper differential) all-frames-p)
-        (setq transparency-cycle 'disappearing)
-        (decrease-opacity)))
+;; `disappearing` and `reappearing` recursively call each other incestuously.
+;; `transparency-animation` allows us to specify what UPPER and LOWER bounds
+;; on our frame-opacity. We determine how long the transition from UPPER to
+;; LOWER should take given the INTERVAL.
+(defun transparency-animation (&optional upper lower interval)
+  "Specify the UPPER and LOWER bounds on the frame-opacity. Given the INTERVAL
+in (sub-)seconds from UPPER to LOWER, we derive the duration from one disappearing
+cycle to the next reappearing cycle.
 
-     ;; increase opacity if we are "appearing"
-     ;; and not above our upper bounds
-     ((and (equalp transparency-cycle 'appearing)
-           (not (>= (active-frame-transparency) upper)))
-      (increase-opacity)))))
-
-
-(defun start-transparency-animation (upper lower interval &optional all-frames-p)
-  "Give the upper and lower boandaries and an innterval (sec)"
+    (transparency-animation 97 60 .025)
+"
   (interactive)
-  (let )
-  (run-at-time nil interval 'transparency-loop upper lower interval all-frames-p))
+  (let* ((upper      (or upper    98))
+         (lower      (or lower    75))
+         (interval   (or interval .08))
+         (duration   (* interval (- upper lower))))
+    (set-frame-opacity upper (- upper 20))
+    (disappearing interval duration)))
 
 (defun stop-transparency-animation ()
   (interactive)
-  (progn
-    (cancel-function-timers 'transparency-loop)))
+  (cancel-transparency-timers)
+  (set-frame-opacity default-active-transparency default-inactive-transparency))
+
+
+(defun toggle-transparency-animation ()
+  (interactive)
+  (if (or (eq 'increase-opacity (elt (car timer-list) 5))   ;; check to see if our timers are running
+          (eq 'decrease-opacity (elt (car timer-list) 5)))
+      (stop-transparency-animation)
+    (transparency-animation)))
 
 
 ;; Key Bindings
@@ -165,9 +164,9 @@
 (global-set-key (kbd "H-M-<f1>") (lambda () (interactive) (decrease-opacity 't))) ;; all-frames
 
 (global-set-key (kbd "H-0")     'toggle-transparency)
-(global-set-key (kbd "M-H-0")   (lambda () (interactive) (toggle-transparency 't))) ;; all-frames
-(global-set-key (kbd "H-[")     (lambda () (interactive) (start-transparency-animation 98 75 0.1 't)))
-(global-set-key (kbd "H-]")     'stop-transparency-animation)
+(global-set-key (kbd "M-H-0")   (lambda () (interactive) (toggle-transparency t))) ;; all-frames
+
+(global-set-key (kbd "<f5>")    'toggle-transparency-animation)
 
 (global-set-key (kbd "M-[") 'ns-next-frame)
 (global-set-key (kbd "M-]") 'ns-prev-frame)
