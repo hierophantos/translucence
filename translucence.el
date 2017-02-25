@@ -109,7 +109,7 @@
 ;; LOWER should take given the INTERVAL.
 (defun transparency-animation (&optional upper lower interval)
   "Specify the UPPER and LOWER bounds on the frame-opacity. Given the INTERVAL
-in (sub-)seconds from UPPER to LOWER, we derive the duration from one disappearing
+in milliseconds from UPPER to LOWER, we derive the duration from one disappearing
 cycle to the next reappearing cycle.
 
     (transparency-animation 97 60 .025)
@@ -117,7 +117,7 @@ cycle to the next reappearing cycle.
   (interactive)
   (let* ((upper      (or upper    98))
          (lower      (or lower    75))
-         (interval   (or interval .08))
+         (interval   (or (/ interval 1000.0) .08))
          (duration   (* interval (- upper lower))))
     (set-frame-opacity upper (- upper 20))
     (disappearing interval duration)))
